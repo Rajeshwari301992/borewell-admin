@@ -20,6 +20,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ dat
     return NextResponse.json({ count, limit, remaining, blocked: false })
   } catch (e) {
     console.error('[GET /api/booking-count]', e)
-    return NextResponse.json({ count: 0, limit: 3, remaining: 3, blocked: false })
+    return NextResponse.json({ count: 0, limit: 3, remaining: 0, blocked: false })
   }
 }

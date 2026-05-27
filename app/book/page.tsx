@@ -119,7 +119,7 @@ export default function BookPage() {
   const [form, setForm] = useState({ name: '', mobile: '', altMobile: '', email: '', address: '', village: '', pincode: '', requiredDate: '', notes: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
-  const [avail, setAvail] = useState<Avail>({ loading: false, remaining: 3, blocked: false })
+  const [avail, setAvail] = useState<Avail>({ loading: false, remaining: 0, blocked: false })
   const [successId, setSuccessId] = useState('')
 
   useEffect(() => {
@@ -219,6 +219,7 @@ export default function BookPage() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         setErrors({ requiredDate: data.message || 'Booking limit reached for this date.' })
+        setAvail({ loading: false, remaining: 0, blocked: false })
         setSubmitting(false)
         return
       }
