@@ -145,6 +145,8 @@ export default function BookPage() {
         setAvail({ loading: false, remaining, blocked: !!d.blocked })
         if (remaining === 0 || d.blocked) {
           setErrors(e => ({ ...e, requiredDate: 'This date is fully booked. Please choose another date.' }))
+        } else {
+          setErrors(e => { const n = { ...e }; delete n.requiredDate; return n })
         }
       })
       .catch(() => setAvail({ loading: false, remaining: 0, blocked: false }))
@@ -184,7 +186,7 @@ export default function BookPage() {
     if (!/^\d{6}$/.test(form.pincode)) e.pincode = 'Enter valid 6-digit pincode'
     else if (!UDUPI_PREFIXES.some(p => form.pincode.startsWith(p))) e.pincode = 'We currently serve Udupi district only.'
     if (!form.requiredDate) e.requiredDate = 'Select a date'
-    else if (avail.remaining === 0 || avail.blocked) e.requiredDate = 'This date is fully booked.'
+    else if (!avail.loading && (avail.remaining === 0 || avail.blocked)) e.requiredDate = 'This date is fully booked.'
     return e
   }
 
@@ -218,8 +220,12 @@ export default function BookPage() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setErrors({ requiredDate: data.message || 'Booking limit reached for this date.' })
-        setAvail({ loading: false, remaining: 0, blocked: false })
+        if (res.status === 409) {
+          setErrors({ requiredDate: data.message || 'This date is fully booked. Please choose another date.' })
+          setAvail({ loading: false, remaining: 0, blocked: false })
+        } else {
+          setErrors({ form: data.error || 'Something went wrong. Please try again.' })
+        }
         setSubmitting(false)
         return
       }
@@ -522,10 +528,17 @@ export default function BookPage() {
 
             </div>
 
-            <button onClick={handleSubmit} disabled={submitting}
-              className="mt-6 w-full py-4 rounded-2xl font-black text-base transition-all"
-              style={{ background: submitting ? 'rgba(251,191,36,0.5)' : 'linear-gradient(135deg,#fbbf24,#f59e0b)', color: '#0f172a', opacity: submitting ? 0.7 : 1 }}>
-              {submitting ? '⏳ Processing...' : '✅ Confirm Booking'}
+            {errors.form && (
+              <div className="mt-4 px-4 py-3 rounded-xl text-sm text-red-300"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                ⚠ {errors.form}
+              </div>
+            )}
+
+            <button onClick={handleSubmit} disabled={submitting || avail.loading}
+              className="mt-4 w-full py-4 rounded-2xl font-black text-base transition-all"
+              style={{ background: (submitting || avail.loading) ? 'rgba(251,191,36,0.5)' : 'linear-gradient(135deg,#fbbf24,#f59e0b)', color: '#0f172a', opacity: (submitting || avail.loading) ? 0.7 : 1 }}>
+              {avail.loading ? '⏳ Checking availability...' : submitting ? '⏳ Processing...' : '✅ Confirm Booking'}
             </button>
           </div>
         )}
