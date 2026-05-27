@@ -44,8 +44,9 @@ export async function POST(req: NextRequest) {
     if (e instanceof Error && e.message?.includes('duplicate')) {
       return NextResponse.json({ success: true, message: 'Booking already exists' }, { status: 200 })
     }
-    const msg = e instanceof Error ? e.message : String(e)
-    console.error('[POST /api/bookings]', msg)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    const err = e as Record<string, unknown>
+    const msg = (err?.message as string) || (err?.error_description as string) || JSON.stringify(e)
+    console.error('[POST /api/bookings]', msg, err?.code, err?.details)
+    return NextResponse.json({ error: msg, code: err?.code, details: err?.details }, { status: 500 })
   }
 }

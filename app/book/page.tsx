@@ -224,7 +224,8 @@ export default function BookPage() {
           setErrors({ requiredDate: data.message || 'This date is fully booked. Please choose another date.' })
           setAvail({ loading: false, remaining: 0, blocked: false })
         } else {
-          setErrors({ form: data.error || 'Something went wrong. Please try again.' })
+          const detail = data.details ? ` (${data.details})` : ''
+          setErrors({ form: (data.error || 'Something went wrong. Please try again.') + detail })
         }
         setSubmitting(false)
         return
