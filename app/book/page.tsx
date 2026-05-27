@@ -136,10 +136,18 @@ export default function BookPage() {
   useEffect(() => {
     if (!form.requiredDate) return
     setAvail(a => ({ ...a, loading: true }))
+    // Clear any previous booking-limit error when date changes
+    setErrors(e => { const n = { ...e }; delete n.requiredDate; return n })
     fetch(`${API}/booking-count/${form.requiredDate}`)
       .then(r => r.json())
-      .then(d => setAvail({ loading: false, remaining: d.remaining ?? 3, blocked: !!d.blocked }))
-      .catch(() => setAvail({ loading: false, remaining: 3, blocked: false }))
+      .then(d => {
+        const remaining = d.remaining ?? 0
+        setAvail({ loading: false, remaining, blocked: !!d.blocked })
+        if (remaining === 0 || d.blocked) {
+          setErrors(e => ({ ...e, requiredDate: 'This date is fully booked. Please choose another date.' }))
+        }
+      })
+      .catch(() => setAvail({ loading: false, remaining: 0, blocked: false }))
   }, [form.requiredDate])
 
   const chooseService = (s: Service) => {
