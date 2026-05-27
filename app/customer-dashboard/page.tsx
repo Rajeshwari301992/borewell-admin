@@ -3,6 +3,52 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { isAuthenticated, isCustomer, logout, getSession } from '@/lib/auth'
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? '/api'
+const WA_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '918310008194'
+
+interface Booking {
+  bookingId: string
+  customerName: string
+  mobile: string
+  address?: string
+  village?: string
+  pincode?: string
+  serviceType?: string
+  requiredDate?: string
+  depth?: number
+}
+
+function buildConfirmMessage(b: Booking): string {
+  const dateLabel = b.requiredDate
+    ? new Date(b.requiredDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : ''
+  const lines = [
+    'Hello S K Borewells Team,',
+    '',
+    'I would like to confirm my borewell booking.',
+    '',
+    '*Booking Details:*',
+    `• Booking ID    : ${b.bookingId}`,
+    `• Customer Name : ${b.customerName}`,
+    `• Mobile Number : ${b.mobile}`,
+  ]
+  const addr = [b.address, b.village].filter(Boolean).join(', ')
+  if (addr)          lines.push(`• Address       : ${addr}`)
+  if (b.pincode)     lines.push(`• Pincode       : ${b.pincode}`)
+  if (b.serviceType) lines.push(`• Service Type  : ${b.serviceType}`)
+  if (dateLabel)     lines.push(`• Required Date : ${dateLabel}`)
+  if (b.depth)       lines.push(`• Est. Depth    : ${b.depth} ft`)
+  lines.push('', 'Please confirm my booking.', '', 'Thank You.')
+  return lines.join('\n')
+}
+
+function openWhatsApp(booking: Booking | null) {
+  const url = booking
+    ? `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(buildConfirmMessage(booking))}`
+    : `https://wa.me/${WA_NUMBER}`
+  window.open(url, '_blank')
+}
+
 const FEATURES = [
   {
     icon: '📊',
@@ -70,13 +116,21 @@ export default function CustomerDashboard() {
   const router = useRouter()
   const [username, setUsername] = useState('Customer')
   const [visible, setVisible] = useState(false)
+  const [latestBooking, setLatestBooking] = useState<Booking | null>(null)
 
   useEffect(() => {
     if (!isAuthenticated()) { router.replace('/login'); return }
     if (!isCustomer()) { router.replace('/dashboard'); return }
     const s = getSession()
-    if (s) setUsername(s.username.charAt(0).toUpperCase() + s.username.slice(1))
-    // Small delay so CSS transitions are visible
+    if (s) {
+      setUsername(s.username.charAt(0).toUpperCase() + s.username.slice(1))
+      if (s.email) {
+        fetch(`${API}/bookings/by-email/${encodeURIComponent(s.email)}`)
+          .then(r => r.json())
+          .then((data: Booking[]) => { if (data?.length) setLatestBooking(data[0]) })
+          .catch(() => {})
+      }
+    }
     setTimeout(() => setVisible(true), 50)
   }, [router])
 
@@ -86,7 +140,9 @@ export default function CustomerDashboard() {
   }
 
   const handleNav = (href: string) => {
-    if (href.startsWith('http') || href.startsWith('tel:') || href.startsWith('https://wa')) {
+    if (href.startsWith('https://wa')) {
+      openWhatsApp(latestBooking)
+    } else if (href.startsWith('http') || href.startsWith('tel:')) {
       window.open(href, '_blank')
     } else {
       router.push(href)
@@ -214,7 +270,7 @@ export default function CustomerDashboard() {
               📞 +91 83100 08194
             </button>
             <button
-              onClick={() => window.open('https://wa.me/918310008194', '_blank')}
+              onClick={() => openWhatsApp(latestBooking)}
               className="px-4 py-2 rounded-xl text-sm font-bold"
               style={{ background: 'rgba(37,211,102,0.15)', color: '#4ade80', border: '1px solid rgba(37,211,102,0.3)' }}
             >
