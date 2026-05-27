@@ -13,9 +13,13 @@ export function getSupabase(): SupabaseClient {
   return _client
 }
 
-// Convenience re-export so existing imports still work
+// Convenience re-export — properly binds methods to the real client
 export const supabase = new Proxy({} as SupabaseClient, {
   get(_t, prop) {
-    return (getSupabase() as unknown as Record<string | symbol, unknown>)[prop]
+    const client = getSupabase()
+    const value = (client as unknown as Record<string | symbol, unknown>)[prop]
+    return typeof value === 'function'
+      ? (value as (...args: unknown[]) => unknown).bind(client)
+      : value
   },
 })
