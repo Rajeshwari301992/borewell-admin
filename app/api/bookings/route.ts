@@ -1,7 +1,35 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
+import nodemailer from 'nodemailer'
 import { getAllBookings, createBooking, getBookingsByDate, getSettings } from '@/lib/db'
+import { buildBookingConfirmationEmail } from '@/lib/email-template'
+
+async function sendConfirmationEmail(booking: {
+  bookingId: string; customerName: string; mobile: string; email?: string
+  serviceType?: string; requiredDate?: string; depth?: number
+  estimatedAmount?: number; address?: string; village?: string; pincode?: string; notes?: string
+}) {
+  if (!booking.email) return
+  const smtpReady = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
+    && !process.env.SMTP_USER.includes('your-email')
+  if (!smtpReady) return
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT ?? 587),
+    secure: process.env.SMTP_PORT === '465',
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  })
+
+  const { subject, html } = buildBookingConfirmationEmail(booking)
+  await transporter.sendMail({
+    from: `"${process.env.SMTP_FROM_NAME ?? 'S K Borewells'}" <${process.env.SMTP_FROM_EMAIL ?? process.env.SMTP_USER}>`,
+    to: booking.email,
+    subject,
+    html,
+  })
+}
 
 export async function GET() {
   try {
@@ -33,11 +61,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await createBooking({
-      ...booking,
-      bookingId: booking.bookingId || booking.id,
-      status: booking.status || 'Booking Received',
-    })
+    const saved = { ...booking, bookingId: booking.bookingId || booking.id, status: booking.status || 'Booking Received' }
+    await createBooking(saved)
+
+    // Send confirmation email — fire-and-forget (don't block response)
+    sendConfirmationEmail(saved).catch(e => console.error('[booking-email]', e))
+
     return NextResponse.json({ success: true, message: 'Booking confirmed successfully' }, { status: 201 })
   } catch (e: unknown) {
     // Duplicate booking ID — treat as success (idempotent)
